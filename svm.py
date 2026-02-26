@@ -7,6 +7,8 @@ from torchvision import datasets, transforms
 
 import numpy as np
 
+from datetime import datetime
+
 def load_mnist_images(filename):
     with open(filename, 'rb') as f:
         magic = int.from_bytes(f.read(4), 'big')
@@ -100,8 +102,8 @@ def svm_main():
     test_labels = np.int32(test_labels)
 
     #데이터 줄이기
-    train_data = train_data[:10000]
-    train_labels = train_labels[:10000]
+    #train_data = train_data[:10000]
+    #train_labels = train_labels[:10000]
 
     # 1) 상수 정의
     SZ = 20      # 이미지 크기
@@ -165,7 +167,7 @@ def svm_main():
     svm.setType(cv.ml.SVM_C_SVC)
     #svm.setKernel(cv.ml.SVM_RBF)
     svm.setKernel(cv.ml.SVM_LINEAR)
-    svm.setC(12.5)
+    svm.setC(0.005)
     #svm.setGamma(0.50625)
     svm.setGamma(0.0013)
 
@@ -177,10 +179,16 @@ def svm_main():
         #svm.train(data, cv.ml.ROW_SAMPLE, target)
         #pass
 
+
+    print("before train : ", datetime.now())
     svm.train(train_data, cv.ml.ROW_SAMPLE, train_labels)
+    print("after train : ", datetime.now())
 
     # 7) 테스트 & 정확도 계산
+    print("before predict : ", datetime.now())
     ret, result = svm.predict(test_data)
+    print("after predict : ", datetime.now())
+
     matches = result.flatten() == test_labels
     correct = np.count_nonzero(matches)
 
