@@ -11,6 +11,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import classification_report
 from skimage.feature import hog
+from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
+from sklearn.svm import LinearSVC
 
 def get_diagnosis(diagnosis_label):
     match diagnosis_label:
@@ -45,16 +48,21 @@ def get_diagnosis(diagnosis_label):
 
 def svm_main():
 
-    data_dir = 'C:\\src\\python\\uofc\\ml_project\\Data\\archive\\images_001\\images\\'
-    data_csv = 'C:\\src\\python\\uofc\\ml_project\\Data\\archive\\image001_Data_Entry_2017.csv'
+    # for windows
+    #data_dir = 'C:\\src\\python\\uofc\\ml_project\\Data\\archive\\images_001\\images\\'
+    #data_csv = 'C:\\src\\python\\uofc\\ml_project\\Data\\archive\\image001_Data_Entry_2017.csv'
+
+    # for linux
+    data_dir = '/home/developer/src/python/UofC/ml_project/Data/archive/images_001/images/'
+    data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/image001_Data_Entry_2017.csv'
 
     all_files = []
-    Y = np.zeros((4999, 14))
+    #Y = np.zeros((4999, 14))
+    Y_rows = []
+    Y = np.zeros((1, 14))
 
-    # wav목록읽기모드,
-    # 특징량 목록을 쓰기 모드로 열기
+
     with open(data_csv, mode='r') as file_feat:
-        # wav 목록을 한 줄씩 불러들이다
 
         loop_index = 0
         line_index = 0
@@ -67,30 +75,37 @@ def svm_main():
             image_file_name = parts[0]
             tmp_part = parts[1]
 
+            row = np.zeros(14)
             if (tmp_part.find("|") >= 0):
                 diagnosis_arr = tmp_part.split("|")
 
                 tmp_diag_index = 0
                 for tmp_diagnosis in diagnosis_arr:
                     diagnosis = get_diagnosis(tmp_diagnosis)
-                    Y[loop_index, diagnosis] = 1
+                    #Y[loop_index, diagnosis] = 1
+                    row[diagnosis] = 1
 
             else:
                 diagnosis = get_diagnosis(tmp_part)
-                Y[loop_index, diagnosis] = 1
+                #Y[loop_index, diagnosis] = 1
+                row[diagnosis] = 1
+
+            Y_rows.append(row)
 
             all_files.append(data_dir + image_file_name)
             loop_index += 1
 
-        #random.shuffle(human_files, random = lambda: 0.7)
+        Y = np.array(Y_rows)
 
-        #all_files = all_files[0:100]
-        #Y = Y[0:100]
 
+        #diminish dataset
+        #all_files = all_files[0:1000]
+        #Y = Y[0:1000]
+        
         number_of_samples = len(all_files)
 
-        train_length = math.floor(len(all_files) * 0.7)
-        eval_length = math.floor(len(all_files) * 0.2)
+        train_length = math.floor(len(all_files) * 0.8)
+        eval_length = math.floor(len(all_files) * 0.1)
         test_length = math.floor(len(all_files) * 0.1)
 
         train_target_files = []
@@ -105,6 +120,7 @@ def svm_main():
         test_target_Y = []
         test_len = 0
 
+        '''
         for index in range(0, train_length):
             train_target_files.append(all_files[index])
             train_target_Y.append(Y[index])
@@ -129,13 +145,25 @@ def svm_main():
         test_target_Y = np.array(test_target_Y)
 
         test_len = len(test_target_files)
+        '''
+
+        train_target_files, test_target_files, train_target_Y, test_target_Y = train_test_split(
+            all_files, Y, test_size=0.2, random_state=42
+        )
+
+
+        train_target_Y = np.array(train_target_Y)
+        train_len = len(train_target_files)
+        test_target_Y = np.array(test_target_Y)
+        test_len = len(test_target_files)
 
     train_data = []
     for image_path in train_target_files:
 
-        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)  # shape (H, W), dtype uint8 
-
-        feature = hog(img,
+        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        img_resized = cv2.resize(img, (512, 512), interpolation=cv2.INTER_AREA)
+        
+        feature = hog(img_resized,
                     pixels_per_cell=(7,7),
                     cells_per_block=(2,2),
                     feature_vector=True)
@@ -148,8 +176,9 @@ def svm_main():
     for image_path in test_target_files:
 
         img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)  # shape (H, W), dtype uint8 
+        img_resized = cv2.resize(img, (512, 512), interpolation=cv2.INTER_AREA)
 
-        feature = hog(img,
+        feature = hog(img_resized,
                     pixels_per_cell=(7,7),
                     cells_per_block=(2,2),
                     feature_vector=True)
@@ -169,30 +198,32 @@ def svm_main():
     # C/Gamma range for hyper parameter tuning
     C = [1, 2.5, 5, 10]
     Gamma = [0.0005, 0.001, 0.002]
-
-
+    
     print("train_features:", train_data.shape, train_data.dtype)
     print("train_labels:", train_labels.shape, train_labels.dtype)
     print("unique labels:", np.unique(train_labels))
 
     # 6) SVM Training
     for tmpC in C:
-        for tmpGamma in Gamma:
-            #svm = cv.ml.SVM_create()
-            #svm.setType(cv.ml.SVM_C_SVC)
-            #svm.setKernel(cv.ml.SVM_RBF)
-            #svm.setKernel(cv.ml.SVM_LINEAR)
-            
-            #svm.setC(tmpC)
-            #svm.setGamma(tmpGamma)
+        #for tmpGamma in Gamma:
 
+            '''
             model = make_pipeline(
                 StandardScaler(),
+                PCA(n_components=200),
                 OneVsRestClassifier(
-                    SVC(kernel='rbf', C = tmpC, gamma = tmpGamma)
+                    SVC(kernel='rbf', C = tmpC, gamma = tmpGamma, class_weight='balanced')
                 )
             )
-            
+            '''
+            model = make_pipeline(
+                StandardScaler(),
+                PCA(n_components=300),
+                OneVsRestClassifier(
+                    LinearSVC(C = tmpC, class_weight='balanced', max_iter=10000)
+                )
+            )
+
             print("before train : ", datetime.now())
             model.fit(train_data, train_labels)
             print("after train : ", datetime.now())
@@ -206,6 +237,10 @@ def svm_main():
             #correct = np.count_nonzero(matches)
             #print("C = {:.2f}".format(tmpC), ", Gamma = {:.4f}".format(tmpGamma), ", Accuracy: {:.2f}%".format(correct * 100.0 / len(test_labels)))
             print(classification_report(test_labels, result))
+
+            print(train_data.shape)
+            print(train_labels.shape)
+            print(np.sum(train_labels, axis=0))
 
 
 if __name__ == "__main__":
