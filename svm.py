@@ -53,8 +53,8 @@ def svm_main():
     #data_csv = 'C:\\src\\python\\uofc\\ml_project\\Data\\archive\\image001_Data_Entry_2017.csv'
 
     # for linux
-    data_dir = '/home/developer/src/python/UofC/ml_project/Data/archive/images_001/images/'
-    data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/image001_Data_Entry_2017.csv'
+    data_dir = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test/images/'
+    data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test_Data_Entry_2017.csv'
 
     all_files = []
     #Y = np.zeros((4999, 14))
@@ -105,16 +105,16 @@ def svm_main():
         number_of_samples = len(all_files)
 
         train_length = math.floor(len(all_files) * 0.8)
-        eval_length = math.floor(len(all_files) * 0.1)
-        test_length = math.floor(len(all_files) * 0.1)
+        #eval_length = math.floor(len(all_files) * 0.1)
+        test_length = math.floor(len(all_files) * 0.2)
 
         train_target_files = []
         train_target_Y = []
         train_len = 0
 
-        eval_target_files = []
-        eval_target_Y = []
-        eval_len = 0
+        #eval_target_files = []
+        #eval_target_Y = []
+        #eval_len = 0
 
         test_target_files = []
         test_target_Y = []
@@ -164,8 +164,9 @@ def svm_main():
         img_resized = cv2.resize(img, (512, 512), interpolation=cv2.INTER_AREA)
         
         feature = hog(img_resized,
-                    pixels_per_cell=(7,7),
+                    pixels_per_cell=(16,16),
                     cells_per_block=(2,2),
+                    block_norm='L2-Hys',
                     feature_vector=True)
         
         #feature = hog(img)
@@ -179,8 +180,9 @@ def svm_main():
         img_resized = cv2.resize(img, (512, 512), interpolation=cv2.INTER_AREA)
 
         feature = hog(img_resized,
-                    pixels_per_cell=(7,7),
+                    pixels_per_cell=(16,16),
                     cells_per_block=(2,2),
+                    block_norm='L2-Hys',
                     feature_vector=True)
 
         #feature = hog(img)
@@ -197,7 +199,7 @@ def svm_main():
 
     # C/Gamma range for hyper parameter tuning
     C = [1, 2.5, 5, 10]
-    Gamma = [0.0005, 0.001, 0.002]
+    #Gamma = [0.0005, 0.001, 0.002]
     
     print("train_features:", train_data.shape, train_data.dtype)
     print("train_labels:", train_labels.shape, train_labels.dtype)
@@ -218,9 +220,12 @@ def svm_main():
             '''
             model = make_pipeline(
                 StandardScaler(),
-                PCA(n_components=300),
+                PCA(n_components=300,
+                    svd_solver='randomized',
+                    random_state=42
+                ),
                 OneVsRestClassifier(
-                    LinearSVC(C = tmpC, class_weight='balanced', max_iter=10000)
+                    LinearSVC(C = tmpC, class_weight='balanced', max_iter=20000)
                 )
             )
 
@@ -229,7 +234,17 @@ def svm_main():
             print("after train : ", datetime.now())
 
             # 7) predict & calculate accuracy calculation
-            result = model.predict(test_data)
+            #result = model.predict(test_data)
+
+            scores = model.decision_function(test_data)
+
+            print("decision_function scores min : ", scores.min())
+            print("decision_function scores max : ", scores.max())
+            print("decision_function scores mean : ", scores.mean())
+
+            threshold = -0.2
+            result = (scores > threshold).astype(int)
+
             #print("after predict : ", datetime.now())
 
             #print(np.bincount(result.astype(int).flatten()))
