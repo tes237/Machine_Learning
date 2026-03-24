@@ -14,6 +14,23 @@ from skimage.feature import hog
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from sklearn.svm import LinearSVC
+import psutil
+
+def monitor_system_memory():
+    """Prints the total, available, used, and percentage of system RAM."""
+    mem = psutil.virtual_memory()
+    print(f"Total RAM: {mem.total / (1024**3):.2f} GB")
+    print(f"Available RAM: {mem.available / (1024**3):.2f} GB")
+    print(f"Used RAM: {mem.used / (1024**3):.2f} GB")
+    print(f"Usage Percentage: {mem.percent}%")
+
+    swap = psutil.swap_memory()
+    print(f"Total Swap: {swap.total / (1024**3):.2f} GB")
+    print(f"Used Swap: {swap.used / (1024**3):.2f} GB")
+    print(f"Free Swap: {swap.free / (1024**3):.2f} GB")
+    print(f"Swap Usage Percent: {swap.percent}%")
+    print(f"Swap In (bytes/sec): {swap.sin}")
+    print(f"Swap Out (bytes/sec): {swap.sout}")
 
 def get_diagnosis(diagnosis_label):
     match diagnosis_label:
@@ -54,7 +71,7 @@ def svm_main():
 
     # for linux
     data_dir = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test/images/'
-    data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test_Data_Entry_2017.csv'
+    data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test2_Data_Entry_2017.csv'
 
     all_files = []
     #Y = np.zeros((4999, 14))
@@ -220,7 +237,7 @@ def svm_main():
             '''
             model = make_pipeline(
                 StandardScaler(),
-                PCA(n_components=300,
+                PCA(n_components=500,
                     svd_solver='randomized',
                     random_state=42
                 ),
@@ -229,9 +246,11 @@ def svm_main():
                 )
             )
 
+            monitor_system_memory()
             print("before train : ", datetime.now())
             model.fit(train_data, train_labels)
             print("after train : ", datetime.now())
+            monitor_system_memory()
 
             # 7) predict & calculate accuracy calculation
             #result = model.predict(test_data)
@@ -242,8 +261,27 @@ def svm_main():
             print("decision_function scores max : ", scores.max())
             print("decision_function scores mean : ", scores.mean())
 
-            threshold = -0.2
-            result = (scores > threshold).astype(int)
+            #threshold = -0.2
+            #result = (scores > threshold).astype(int)
+
+            thresholds = [
+            -0.3,  # 0
+            -0.2,  # 1
+            -0.3,  # 2
+            -0.2,  # 3
+            -0.1,  # 4
+            -0.1,  # 5
+            0.0,  # 6
+            -0.1,  # 7
+            -0.1,  # 8
+            -0.1,  # 9
+            -0.1,  # 10
+            -0.1,  # 11
+            0.2,  # 12 (rare → stricter)
+            -0.3   # 13
+            ]
+
+            result = (scores > thresholds).astype(int)
 
             #print("after predict : ", datetime.now())
 
