@@ -15,6 +15,7 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from sklearn.svm import LinearSVC
 import psutil
+from sklearn.metrics import roc_auc_score
 
 def monitor_system_memory():
     """Prints the total, available, used, and percentage of system RAM."""
@@ -72,6 +73,9 @@ def svm_main():
     # for linux
     data_dir = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test/images/'
     data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test2_Data_Entry_2017.csv'
+
+    #data_dir = '/home/developer/src/python/UofC/ml_project/Data/archive/image_mini_test/images/'
+    #data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/minitest_Data_Entry_2017.csv'
 
     all_files = []
     #Y = np.zeros((4999, 14))
@@ -290,6 +294,15 @@ def svm_main():
             #correct = np.count_nonzero(matches)
             #print("C = {:.2f}".format(tmpC), ", Gamma = {:.4f}".format(tmpGamma), ", Accuracy: {:.2f}%".format(correct * 100.0 / len(test_labels)))
             print(classification_report(test_labels, result))
+            
+            #ROC AUC score
+            #auc_score = roc_auc_score(y_test, y_score)
+            #auc_score = roc_auc_score(test_labels, scores, multi_class='ovr', average='macro')
+            auc_score = roc_auc_score(test_labels, scores, average='macro')
+            print(f"ROC AUC Macro Score: {auc_score}")
+
+            auc_score2 = roc_auc_score(test_labels, scores)
+            print(f"ROC AUC Score: {auc_score2}")
 
             print(train_data.shape)
             print(train_labels.shape)
