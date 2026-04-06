@@ -1,0 +1,1283 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "78df0175",
+   "metadata": {
+    "_cell_guid": "b1076dfc-b9ad-4769-8c92-a6c4dae69d19",
+    "_uuid": "8f2839f25d086af736a60e9eeb907d3b93b6e0e5",
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:19.679138Z",
+     "iopub.status.busy": "2026-04-06T19:38:19.678840Z",
+     "iopub.status.idle": "2026-04-06T19:38:19.687480Z",
+     "shell.execute_reply": "2026-04-06T19:38:19.686642Z"
+    },
+    "papermill": {
+     "duration": 0.014578,
+     "end_time": "2026-04-06T19:38:19.688855",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:19.674277",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Datasets mounted at /kaggle/input:\n",
+      "['datasets']\n",
+      "['organizations']\n",
+      "['nih-chest-xrays']\n"
+     ]
+    }
+   ],
+   "source": [
+    "# import OS and check if dataset is mounted\n",
+    "import os\n",
+    "\n",
+    "print(\"Datasets mounted at /kaggle/input:\")\n",
+    "print(os.listdir(\"/kaggle/input\"))\n",
+    "print(os.listdir(\"/kaggle/input/datasets\")[:50])\n",
+    "print(os.listdir(\"/kaggle/input/datasets/organizations\")[:100])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "457dc4a1",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:19.695610Z",
+     "iopub.status.busy": "2026-04-06T19:38:19.695026Z",
+     "iopub.status.idle": "2026-04-06T19:38:19.699076Z",
+     "shell.execute_reply": "2026-04-06T19:38:19.698514Z"
+    },
+    "papermill": {
+     "duration": 0.008685,
+     "end_time": "2026-04-06T19:38:19.700314",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:19.691629",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "['data']\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Storing root path of ChestXray14 dataset\n",
+    "DATA_ROOT = \"/kaggle/input/datasets/organizations/nih-chest-xrays\"\n",
+    "print(os.listdir(DATA_ROOT)[:200])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "72def555",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:19.706311Z",
+     "iopub.status.busy": "2026-04-06T19:38:19.706097Z",
+     "iopub.status.idle": "2026-04-06T19:38:28.298721Z",
+     "shell.execute_reply": "2026-04-06T19:38:28.298013Z"
+    },
+    "papermill": {
+     "duration": 8.597288,
+     "end_time": "2026-04-06T19:38:28.300159",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:19.702871",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "First PNG found: /kaggle/input/datasets/organizations/nih-chest-xrays/data/images_003/images/00006199_010.png\n"
+     ]
+    }
+   ],
+   "source": [
+    "DATA_ROOT = \"/kaggle/input/datasets/organizations/nih-chest-xrays/data\"\n",
+    "\n",
+    "first_png = None\n",
+    "for root, dirs, files in os.walk(DATA_ROOT):\n",
+    "    for f in files:\n",
+    "        if f.endswith(\".png\"):\n",
+    "            first_png = os.path.join(root, f)\n",
+    "            break\n",
+    "    if first_png:\n",
+    "        break\n",
+    "\n",
+    "print(\"First PNG found:\", first_png)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "feaefc88",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:28.307242Z",
+     "iopub.status.busy": "2026-04-06T19:38:28.306609Z",
+     "iopub.status.idle": "2026-04-06T19:38:39.189443Z",
+     "shell.execute_reply": "2026-04-06T19:38:39.188833Z"
+    },
+    "papermill": {
+     "duration": 10.888041,
+     "end_time": "2026-04-06T19:38:39.191065",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:28.303024",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "# Importing PIL to open images and tqdm for progress bars as well as random for reproducibilty\n",
+    "import random\n",
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "from PIL import Image\n",
+    "from tqdm import tqdm\n",
+    "\n",
+    "# PyTorch and its neural network tools.\n",
+    "import torch\n",
+    "import torch.nn as nn\n",
+    "from torch.utils.data import Dataset, DataLoader\n",
+    "from torchvision import transforms\n",
+    "\n",
+    "# auroc metric from sklearn\n",
+    "from sklearn.metrics import roc_auc_score\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "68493423",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:39.197724Z",
+     "iopub.status.busy": "2026-04-06T19:38:39.197357Z",
+     "iopub.status.idle": "2026-04-06T19:38:39.259487Z",
+     "shell.execute_reply": "2026-04-06T19:38:39.258634Z"
+    },
+    "jupyter": {
+     "source_hidden": true
+    },
+    "papermill": {
+     "duration": 0.067023,
+     "end_time": "2026-04-06T19:38:39.260893",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:39.193870",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "device: cuda\n"
+     ]
+    }
+   ],
+   "source": [
+    "DATA_ROOT = \"/kaggle/input/datasets/organizations/nih-chest-xrays/data\"\n",
+    "CSV_PATH = DATA_ROOT + \"/Data_Entry_2017.csv\"\n",
+    "\n",
+    "LABELS = [\n",
+    "    \"Atelectasis\",\"Cardiomegaly\",\"Effusion\",\"Infiltration\",\"Mass\",\"Nodule\",\n",
+    "    \"Pneumonia\",\"Pneumothorax\",\"Consolidation\",\"Edema\",\"Emphysema\",\"Fibrosis\",\n",
+    "    \"Pleural_Thickening\",\"Hernia\"\n",
+    "]\n",
+    "label2idx = {l:i for i,l in enumerate(LABELS)}\n",
+    "NUM_LABELS = len(LABELS)\n",
+    "\n",
+    "def seed_everything(seed=42):\n",
+    "    random.seed(seed)\n",
+    "    np.random.seed(seed)\n",
+    "    torch.manual_seed(seed)\n",
+    "    torch.cuda.manual_seed_all(seed)\n",
+    "\n",
+    "seed_everything(42)\n",
+    "\n",
+    "device = \"cuda\" if torch.cuda.is_available() else \"cpu\"\n",
+    "print(\"device:\", device)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "a2e56a90",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:39.267456Z",
+     "iopub.status.busy": "2026-04-06T19:38:39.267215Z",
+     "iopub.status.idle": "2026-04-06T19:38:39.273244Z",
+     "shell.execute_reply": "2026-04-06T19:38:39.272694Z"
+    },
+    "papermill": {
+     "duration": 0.010735,
+     "end_time": "2026-04-06T19:38:39.274459",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:39.263724",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "# Pointing to the metadata csv that contains image names, patient IDs, and label\n",
+    "DATA_ROOT = \"/kaggle/input/datasets/organizations/nih-chest-xrays/data\"\n",
+    "CSV_PATH = DATA_ROOT + \"/Data_Entry_2017.csv\"\n",
+    "\n",
+    "# The 14 chest disease classes\n",
+    "LABELS = [\n",
+    "    \"Atelectasis\",\"Cardiomegaly\",\"Effusion\",\"Infiltration\",\"Mass\",\"Nodule\",\n",
+    "    \"Pneumonia\",\"Pneumothorax\",\"Consolidation\",\"Edema\",\"Emphysema\",\"Fibrosis\",\n",
+    "    \"Pleural_Thickening\",\"Hernia\"\n",
+    "]\n",
+    "\n",
+    "# Creating a dictionary for these labels\n",
+    "label2idx = {l:i for i,l in enumerate(LABELS)}\n",
+    "NUM_LABELS = len(LABELS)\n",
+    "\n",
+    "# use a same seed to reproduce results\n",
+    "def seed_everything(seed=42):\n",
+    "    random.seed(seed)\n",
+    "    np.random.seed(seed)\n",
+    "    torch.manual_seed(seed)\n",
+    "    torch.cuda.manual_seed_all(seed)\n",
+    "\n",
+    "seed_everything(42)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "id": "496dbcd8",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:39.280969Z",
+     "iopub.status.busy": "2026-04-06T19:38:39.280427Z",
+     "iopub.status.idle": "2026-04-06T19:38:40.503133Z",
+     "shell.execute_reply": "2026-04-06T19:38:40.502353Z"
+    },
+    "papermill": {
+     "duration": 1.227685,
+     "end_time": "2026-04-06T19:38:40.504755",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:39.277070",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Image folders found: 12\n",
+      "Example dirs: ['/kaggle/input/datasets/organizations/nih-chest-xrays/data/images_003/images', '/kaggle/input/datasets/organizations/nih-chest-xrays/data/images_012/images', '/kaggle/input/datasets/organizations/nih-chest-xrays/data/images_009/images']\n",
+      "Indexed images: 112120\n",
+      "Has 00000001_000.png? True\n"
+     ]
+    }
+   ],
+   "source": [
+    "# collect all subdirectories inside DATA_ROOT that match 'images_' and contain an 'images' folder\n",
+    "img_dirs = [\n",
+    "    os.path.join(DATA_ROOT, d, \"images\")\n",
+    "    for d in os.listdir(DATA_ROOT)\n",
+    "    if d.startswith(\"images_\") and os.path.isdir(os.path.join(DATA_ROOT, d, \"images\"))\n",
+    "]\n",
+    "\n",
+    "# print number of image directories found and preview a few paths\n",
+    "print(\"Image folders found:\", len(img_dirs))\n",
+    "print(\"Example dirs:\", img_dirs[:3])\n",
+    "\n",
+    "# create a dictionary mapping image filenames to their full file paths\n",
+    "name2path = {}\n",
+    "for d in img_dirs:\n",
+    "    for f in os.listdir(d):\n",
+    "        if f.endswith(\".png\"):\n",
+    "            name2path[f] = os.path.join(d, f)\n",
+    "\n",
+    "# print total number of indexed images and check if a sample file exists\n",
+    "print(\"Indexed images:\", len(name2path))\n",
+    "print(\"Has 00000001_000.png?\", \"00000001_000.png\" in name2path)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "id": "af0781f4",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:40.511945Z",
+     "iopub.status.busy": "2026-04-06T19:38:40.511454Z",
+     "iopub.status.idle": "2026-04-06T19:38:40.756290Z",
+     "shell.execute_reply": "2026-04-06T19:38:40.755451Z"
+    },
+    "papermill": {
+     "duration": 0.250006,
+     "end_time": "2026-04-06T19:38:40.757787",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:40.507781",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "89703 11221 11196\n"
+     ]
+    }
+   ],
+   "source": [
+    "# load dataset from CSV file into a DataFrame\n",
+    "df = pd.read_csv(CSV_PATH)\n",
+    "\n",
+    "# get unique patient IDs and shuffle them for random splitting\n",
+    "patients = df[\"Patient ID\"].unique()\n",
+    "np.random.shuffle(patients)\n",
+    "\n",
+    "# split sizes (80% train, 10% validation, 10% test)\n",
+    "n = len(patients)\n",
+    "train_ids = set(patients[: int(0.8*n)])\n",
+    "val_ids   = set(patients[int(0.8*n): int(0.9*n)])\n",
+    "test_ids  = set(patients[int(0.9*n):])\n",
+    "\n",
+    "# split the DataFrame based on patient IDs to avoid data leakage\n",
+    "train_df = df[df[\"Patient ID\"].isin(train_ids)].copy()\n",
+    "val_df   = df[df[\"Patient ID\"].isin(val_ids)].copy()\n",
+    "test_df  = df[df[\"Patient ID\"].isin(test_ids)].copy()\n",
+    "\n",
+    "# print number of samples in each split\n",
+    "print(len(train_df), len(val_df), len(test_df))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "id": "ba346164",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:40.765161Z",
+     "iopub.status.busy": "2026-04-06T19:38:40.764568Z",
+     "iopub.status.idle": "2026-04-06T19:38:40.773137Z",
+     "shell.execute_reply": "2026-04-06T19:38:40.772469Z"
+    },
+    "papermill": {
+     "duration": 0.013855,
+     "end_time": "2026-04-06T19:38:40.774572",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:40.760717",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "class ChestXray14(Dataset):\n",
+    "    # store dataframe and reset index for consistent access\n",
+    "    def __init__(self, df, transform=None):\n",
+    "        self.df = df.reset_index(drop=True)\n",
+    "        self.transform = transform\n",
+    "\n",
+    "    # return total number of samples\n",
+    "    def __len__(self):\n",
+    "        return len(self.df)\n",
+    "\n",
+    "    def __getitem__(self, i):\n",
+    "        # get row corresponding to index i\n",
+    "        row = self.df.iloc[i]\n",
+    "        fname = row[\"Image Index\"]\n",
+    "        \n",
+    "        # load image in grayscale and convert to 3-channel RGB\n",
+    "        img_path = name2path[fname]\n",
+    "        img = Image.open(img_path).convert(\"L\")\n",
+    "\n",
+    "        # initialize multi-label target vector\n",
+    "        y = np.zeros(NUM_LABELS, dtype=np.float32)\n",
+    "        \n",
+    "         # set labels to 1 for each disease present\n",
+    "        for f in str(row[\"Finding Labels\"]).split(\"|\"):\n",
+    "            if f in label2idx:\n",
+    "                y[label2idx[f]] = 1.0\n",
+    "\n",
+    "        # apply data transformations if provided\n",
+    "        if self.transform:\n",
+    "            img = self.transform(img)\n",
+    "\n",
+    "        # return image tensor and corresponding label tensor\n",
+    "        return img, torch.tensor(y)\n",
+    "\n",
+    "\n",
+    "# define target image size\n",
+    "IMG_SIZE = 224\n",
+    "\n",
+    "# training transformations (resize and convert to tensor)\n",
+    "train_tf = transforms.Compose([\n",
+    "    transforms.Resize((128, 128)),\n",
+    "    transforms.ToTensor(),\n",
+    "])\n",
+    "\n",
+    "# validation transformations (same preprocessing as training)\n",
+    "val_tf = transforms.Compose([\n",
+    "    transforms.Resize((128, 128)),\n",
+    "    transforms.ToTensor(),\n",
+    "])\n",
+    "\n",
+    "# test transformations (same preprocessing for consistent evaluation)\n",
+    "test_tf = transforms.Compose([\n",
+    "    transforms.Resize((128, 128)),\n",
+    "    transforms.ToTensor(),\n",
+    "])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "id": "5d630d8c",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:40.781527Z",
+     "iopub.status.busy": "2026-04-06T19:38:40.780956Z",
+     "iopub.status.idle": "2026-04-06T19:38:40.790436Z",
+     "shell.execute_reply": "2026-04-06T19:38:40.789755Z"
+    },
+    "papermill": {
+     "duration": 0.014447,
+     "end_time": "2026-04-06T19:38:40.791836",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:40.777389",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "# define batch size and number of workers for data loading\n",
+    "BATCH_SIZE = 32\n",
+    "NUM_WORKERS = 0\n",
+    "\n",
+    "# create DataLoader for training set (shuffle enabled for randomness)\n",
+    "train_loader = DataLoader(ChestXray14(train_df, train_tf),\n",
+    "                          batch_size=BATCH_SIZE, shuffle=True,\n",
+    "                          num_workers=NUM_WORKERS, pin_memory=True)\n",
+    "\n",
+    "# create DataLoader for validation set (no shuffling for consistent evaluation)\n",
+    "val_loader = DataLoader(ChestXray14(val_df, val_tf),\n",
+    "                        batch_size=BATCH_SIZE, shuffle=False,\n",
+    "                        num_workers=NUM_WORKERS, pin_memory=True)\n",
+    "\n",
+    "# create DataLoader for test set (no shuffling, same preprocessing as validation)\n",
+    "test_loader = DataLoader(ChestXray14(test_df, val_tf),\n",
+    "                         batch_size=BATCH_SIZE, shuffle=False,\n",
+    "                         num_workers=NUM_WORKERS, pin_memory=True)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "id": "cff31156",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:40.798748Z",
+     "iopub.status.busy": "2026-04-06T19:38:40.798271Z",
+     "iopub.status.idle": "2026-04-06T19:38:40.906640Z",
+     "shell.execute_reply": "2026-04-06T19:38:40.906051Z"
+    },
+    "papermill": {
+     "duration": 0.113688,
+     "end_time": "2026-04-06T19:38:40.908297",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:40.794609",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "from sklearn.linear_model import RidgeClassifier\n",
+    "from sklearn.multiclass import OneVsRestClassifier\n",
+    "\n",
+    "# convert DataLoader batches into NumPy arrays\n",
+    "def loader_to_numpy(loader):\n",
+    "    X_list = []\n",
+    "    y_list = []\n",
+    "\n",
+    "    # iterate over batches from DataLoader\n",
+    "    for x, y in tqdm(loader):\n",
+    "        # flatten images into feature vectors and convert to NumPy (float16 to reduce memory)\n",
+    "        x = x.view(x.size(0), -1).cpu().numpy().astype(np.float16)\n",
+    "        # convert labels to NumPy arrays\n",
+    "        y = y.cpu().numpy().astype(np.float32)\n",
+    "        \n",
+    "        # store batch features and labels\n",
+    "        X_list.append(x)\n",
+    "        y_list.append(y)\n",
+    "    # concatenate all batches into full dataset arrays\n",
+    "    X = np.concatenate(X_list, axis=0)\n",
+    "    Y = np.concatenate(y_list, axis=0)\n",
+    "    \n",
+    "    # return feature matrix and label matrix\n",
+    "    return X, Y"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "id": "f952c2c3",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T19:38:40.915459Z",
+     "iopub.status.busy": "2026-04-06T19:38:40.914940Z",
+     "iopub.status.idle": "2026-04-06T20:19:17.851058Z",
+     "shell.execute_reply": "2026-04-06T20:19:17.850304Z"
+    },
+    "papermill": {
+     "duration": 2436.941529,
+     "end_time": "2026-04-06T20:19:17.852802",
+     "exception": false,
+     "start_time": "2026-04-06T19:38:40.911273",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "100%|██████████| 2804/2804 [32:31<00:00,  1.44it/s]\n",
+      "100%|██████████| 351/351 [04:03<00:00,  1.44it/s]\n",
+      "100%|██████████| 350/350 [04:00<00:00,  1.46it/s]\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Convert existing loaders to numpy arrays\n",
+    "X_train, y_train = loader_to_numpy(train_loader)\n",
+    "X_val, y_val = loader_to_numpy(val_loader)\n",
+    "X_test, y_test = loader_to_numpy(test_loader)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "id": "b2ec3140",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T20:19:18.102656Z",
+     "iopub.status.busy": "2026-04-06T20:19:18.102357Z",
+     "iopub.status.idle": "2026-04-06T21:26:10.535986Z",
+     "shell.execute_reply": "2026-04-06T21:26:10.535262Z"
+    },
+    "papermill": {
+     "duration": 4012.690405,
+     "end_time": "2026-04-06T21:26:10.667110",
+     "exception": false,
+     "start_time": "2026-04-06T20:19:17.976705",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<style>#sk-container-id-1 {\n",
+       "  /* Definition of color scheme common for light and dark mode */\n",
+       "  --sklearn-color-text: #000;\n",
+       "  --sklearn-color-text-muted: #666;\n",
+       "  --sklearn-color-line: gray;\n",
+       "  /* Definition of color scheme for unfitted estimators */\n",
+       "  --sklearn-color-unfitted-level-0: #fff5e6;\n",
+       "  --sklearn-color-unfitted-level-1: #f6e4d2;\n",
+       "  --sklearn-color-unfitted-level-2: #ffe0b3;\n",
+       "  --sklearn-color-unfitted-level-3: chocolate;\n",
+       "  /* Definition of color scheme for fitted estimators */\n",
+       "  --sklearn-color-fitted-level-0: #f0f8ff;\n",
+       "  --sklearn-color-fitted-level-1: #d4ebff;\n",
+       "  --sklearn-color-fitted-level-2: #b3dbfd;\n",
+       "  --sklearn-color-fitted-level-3: cornflowerblue;\n",
+       "\n",
+       "  /* Specific color for light theme */\n",
+       "  --sklearn-color-text-on-default-background: var(--sg-text-color, var(--theme-code-foreground, var(--jp-content-font-color1, black)));\n",
+       "  --sklearn-color-background: var(--sg-background-color, var(--theme-background, var(--jp-layout-color0, white)));\n",
+       "  --sklearn-color-border-box: var(--sg-text-color, var(--theme-code-foreground, var(--jp-content-font-color1, black)));\n",
+       "  --sklearn-color-icon: #696969;\n",
+       "\n",
+       "  @media (prefers-color-scheme: dark) {\n",
+       "    /* Redefinition of color scheme for dark theme */\n",
+       "    --sklearn-color-text-on-default-background: var(--sg-text-color, var(--theme-code-foreground, var(--jp-content-font-color1, white)));\n",
+       "    --sklearn-color-background: var(--sg-background-color, var(--theme-background, var(--jp-layout-color0, #111)));\n",
+       "    --sklearn-color-border-box: var(--sg-text-color, var(--theme-code-foreground, var(--jp-content-font-color1, white)));\n",
+       "    --sklearn-color-icon: #878787;\n",
+       "  }\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 {\n",
+       "  color: var(--sklearn-color-text);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 pre {\n",
+       "  padding: 0;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 input.sk-hidden--visually {\n",
+       "  border: 0;\n",
+       "  clip: rect(1px 1px 1px 1px);\n",
+       "  clip: rect(1px, 1px, 1px, 1px);\n",
+       "  height: 1px;\n",
+       "  margin: -1px;\n",
+       "  overflow: hidden;\n",
+       "  padding: 0;\n",
+       "  position: absolute;\n",
+       "  width: 1px;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-dashed-wrapped {\n",
+       "  border: 1px dashed var(--sklearn-color-line);\n",
+       "  margin: 0 0.4em 0.5em 0.4em;\n",
+       "  box-sizing: border-box;\n",
+       "  padding-bottom: 0.4em;\n",
+       "  background-color: var(--sklearn-color-background);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-container {\n",
+       "  /* jupyter's `normalize.less` sets `[hidden] { display: none; }`\n",
+       "     but bootstrap.min.css set `[hidden] { display: none !important; }`\n",
+       "     so we also need the `!important` here to be able to override the\n",
+       "     default hidden behavior on the sphinx rendered scikit-learn.org.\n",
+       "     See: https://github.com/scikit-learn/scikit-learn/issues/21755 */\n",
+       "  display: inline-block !important;\n",
+       "  position: relative;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-text-repr-fallback {\n",
+       "  display: none;\n",
+       "}\n",
+       "\n",
+       "div.sk-parallel-item,\n",
+       "div.sk-serial,\n",
+       "div.sk-item {\n",
+       "  /* draw centered vertical line to link estimators */\n",
+       "  background-image: linear-gradient(var(--sklearn-color-text-on-default-background), var(--sklearn-color-text-on-default-background));\n",
+       "  background-size: 2px 100%;\n",
+       "  background-repeat: no-repeat;\n",
+       "  background-position: center center;\n",
+       "}\n",
+       "\n",
+       "/* Parallel-specific style estimator block */\n",
+       "\n",
+       "#sk-container-id-1 div.sk-parallel-item::after {\n",
+       "  content: \"\";\n",
+       "  width: 100%;\n",
+       "  border-bottom: 2px solid var(--sklearn-color-text-on-default-background);\n",
+       "  flex-grow: 1;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-parallel {\n",
+       "  display: flex;\n",
+       "  align-items: stretch;\n",
+       "  justify-content: center;\n",
+       "  background-color: var(--sklearn-color-background);\n",
+       "  position: relative;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-parallel-item {\n",
+       "  display: flex;\n",
+       "  flex-direction: column;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-parallel-item:first-child::after {\n",
+       "  align-self: flex-end;\n",
+       "  width: 50%;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-parallel-item:last-child::after {\n",
+       "  align-self: flex-start;\n",
+       "  width: 50%;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-parallel-item:only-child::after {\n",
+       "  width: 0;\n",
+       "}\n",
+       "\n",
+       "/* Serial-specific style estimator block */\n",
+       "\n",
+       "#sk-container-id-1 div.sk-serial {\n",
+       "  display: flex;\n",
+       "  flex-direction: column;\n",
+       "  align-items: center;\n",
+       "  background-color: var(--sklearn-color-background);\n",
+       "  padding-right: 1em;\n",
+       "  padding-left: 1em;\n",
+       "}\n",
+       "\n",
+       "\n",
+       "/* Toggleable style: style used for estimator/Pipeline/ColumnTransformer box that is\n",
+       "clickable and can be expanded/collapsed.\n",
+       "- Pipeline and ColumnTransformer use this feature and define the default style\n",
+       "- Estimators will overwrite some part of the style using the `sk-estimator` class\n",
+       "*/\n",
+       "\n",
+       "/* Pipeline and ColumnTransformer style (default) */\n",
+       "\n",
+       "#sk-container-id-1 div.sk-toggleable {\n",
+       "  /* Default theme specific background. It is overwritten whether we have a\n",
+       "  specific estimator or a Pipeline/ColumnTransformer */\n",
+       "  background-color: var(--sklearn-color-background);\n",
+       "}\n",
+       "\n",
+       "/* Toggleable label */\n",
+       "#sk-container-id-1 label.sk-toggleable__label {\n",
+       "  cursor: pointer;\n",
+       "  display: flex;\n",
+       "  width: 100%;\n",
+       "  margin-bottom: 0;\n",
+       "  padding: 0.5em;\n",
+       "  box-sizing: border-box;\n",
+       "  text-align: center;\n",
+       "  align-items: start;\n",
+       "  justify-content: space-between;\n",
+       "  gap: 0.5em;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 label.sk-toggleable__label .caption {\n",
+       "  font-size: 0.6rem;\n",
+       "  font-weight: lighter;\n",
+       "  color: var(--sklearn-color-text-muted);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 label.sk-toggleable__label-arrow:before {\n",
+       "  /* Arrow on the left of the label */\n",
+       "  content: \"▸\";\n",
+       "  float: left;\n",
+       "  margin-right: 0.25em;\n",
+       "  color: var(--sklearn-color-icon);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 label.sk-toggleable__label-arrow:hover:before {\n",
+       "  color: var(--sklearn-color-text);\n",
+       "}\n",
+       "\n",
+       "/* Toggleable content - dropdown */\n",
+       "\n",
+       "#sk-container-id-1 div.sk-toggleable__content {\n",
+       "  max-height: 0;\n",
+       "  max-width: 0;\n",
+       "  overflow: hidden;\n",
+       "  text-align: left;\n",
+       "  /* unfitted */\n",
+       "  background-color: var(--sklearn-color-unfitted-level-0);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-toggleable__content.fitted {\n",
+       "  /* fitted */\n",
+       "  background-color: var(--sklearn-color-fitted-level-0);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-toggleable__content pre {\n",
+       "  margin: 0.2em;\n",
+       "  border-radius: 0.25em;\n",
+       "  color: var(--sklearn-color-text);\n",
+       "  /* unfitted */\n",
+       "  background-color: var(--sklearn-color-unfitted-level-0);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-toggleable__content.fitted pre {\n",
+       "  /* unfitted */\n",
+       "  background-color: var(--sklearn-color-fitted-level-0);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 input.sk-toggleable__control:checked~div.sk-toggleable__content {\n",
+       "  /* Expand drop-down */\n",
+       "  max-height: 200px;\n",
+       "  max-width: 100%;\n",
+       "  overflow: auto;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 input.sk-toggleable__control:checked~label.sk-toggleable__label-arrow:before {\n",
+       "  content: \"▾\";\n",
+       "}\n",
+       "\n",
+       "/* Pipeline/ColumnTransformer-specific style */\n",
+       "\n",
+       "#sk-container-id-1 div.sk-label input.sk-toggleable__control:checked~label.sk-toggleable__label {\n",
+       "  color: var(--sklearn-color-text);\n",
+       "  background-color: var(--sklearn-color-unfitted-level-2);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-label.fitted input.sk-toggleable__control:checked~label.sk-toggleable__label {\n",
+       "  background-color: var(--sklearn-color-fitted-level-2);\n",
+       "}\n",
+       "\n",
+       "/* Estimator-specific style */\n",
+       "\n",
+       "/* Colorize estimator box */\n",
+       "#sk-container-id-1 div.sk-estimator input.sk-toggleable__control:checked~label.sk-toggleable__label {\n",
+       "  /* unfitted */\n",
+       "  background-color: var(--sklearn-color-unfitted-level-2);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-estimator.fitted input.sk-toggleable__control:checked~label.sk-toggleable__label {\n",
+       "  /* fitted */\n",
+       "  background-color: var(--sklearn-color-fitted-level-2);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-label label.sk-toggleable__label,\n",
+       "#sk-container-id-1 div.sk-label label {\n",
+       "  /* The background is the default theme color */\n",
+       "  color: var(--sklearn-color-text-on-default-background);\n",
+       "}\n",
+       "\n",
+       "/* On hover, darken the color of the background */\n",
+       "#sk-container-id-1 div.sk-label:hover label.sk-toggleable__label {\n",
+       "  color: var(--sklearn-color-text);\n",
+       "  background-color: var(--sklearn-color-unfitted-level-2);\n",
+       "}\n",
+       "\n",
+       "/* Label box, darken color on hover, fitted */\n",
+       "#sk-container-id-1 div.sk-label.fitted:hover label.sk-toggleable__label.fitted {\n",
+       "  color: var(--sklearn-color-text);\n",
+       "  background-color: var(--sklearn-color-fitted-level-2);\n",
+       "}\n",
+       "\n",
+       "/* Estimator label */\n",
+       "\n",
+       "#sk-container-id-1 div.sk-label label {\n",
+       "  font-family: monospace;\n",
+       "  font-weight: bold;\n",
+       "  display: inline-block;\n",
+       "  line-height: 1.2em;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-label-container {\n",
+       "  text-align: center;\n",
+       "}\n",
+       "\n",
+       "/* Estimator-specific */\n",
+       "#sk-container-id-1 div.sk-estimator {\n",
+       "  font-family: monospace;\n",
+       "  border: 1px dotted var(--sklearn-color-border-box);\n",
+       "  border-radius: 0.25em;\n",
+       "  box-sizing: border-box;\n",
+       "  margin-bottom: 0.5em;\n",
+       "  /* unfitted */\n",
+       "  background-color: var(--sklearn-color-unfitted-level-0);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-estimator.fitted {\n",
+       "  /* fitted */\n",
+       "  background-color: var(--sklearn-color-fitted-level-0);\n",
+       "}\n",
+       "\n",
+       "/* on hover */\n",
+       "#sk-container-id-1 div.sk-estimator:hover {\n",
+       "  /* unfitted */\n",
+       "  background-color: var(--sklearn-color-unfitted-level-2);\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 div.sk-estimator.fitted:hover {\n",
+       "  /* fitted */\n",
+       "  background-color: var(--sklearn-color-fitted-level-2);\n",
+       "}\n",
+       "\n",
+       "/* Specification for estimator info (e.g. \"i\" and \"?\") */\n",
+       "\n",
+       "/* Common style for \"i\" and \"?\" */\n",
+       "\n",
+       ".sk-estimator-doc-link,\n",
+       "a:link.sk-estimator-doc-link,\n",
+       "a:visited.sk-estimator-doc-link {\n",
+       "  float: right;\n",
+       "  font-size: smaller;\n",
+       "  line-height: 1em;\n",
+       "  font-family: monospace;\n",
+       "  background-color: var(--sklearn-color-background);\n",
+       "  border-radius: 1em;\n",
+       "  height: 1em;\n",
+       "  width: 1em;\n",
+       "  text-decoration: none !important;\n",
+       "  margin-left: 0.5em;\n",
+       "  text-align: center;\n",
+       "  /* unfitted */\n",
+       "  border: var(--sklearn-color-unfitted-level-1) 1pt solid;\n",
+       "  color: var(--sklearn-color-unfitted-level-1);\n",
+       "}\n",
+       "\n",
+       ".sk-estimator-doc-link.fitted,\n",
+       "a:link.sk-estimator-doc-link.fitted,\n",
+       "a:visited.sk-estimator-doc-link.fitted {\n",
+       "  /* fitted */\n",
+       "  border: var(--sklearn-color-fitted-level-1) 1pt solid;\n",
+       "  color: var(--sklearn-color-fitted-level-1);\n",
+       "}\n",
+       "\n",
+       "/* On hover */\n",
+       "div.sk-estimator:hover .sk-estimator-doc-link:hover,\n",
+       ".sk-estimator-doc-link:hover,\n",
+       "div.sk-label-container:hover .sk-estimator-doc-link:hover,\n",
+       ".sk-estimator-doc-link:hover {\n",
+       "  /* unfitted */\n",
+       "  background-color: var(--sklearn-color-unfitted-level-3);\n",
+       "  color: var(--sklearn-color-background);\n",
+       "  text-decoration: none;\n",
+       "}\n",
+       "\n",
+       "div.sk-estimator.fitted:hover .sk-estimator-doc-link.fitted:hover,\n",
+       ".sk-estimator-doc-link.fitted:hover,\n",
+       "div.sk-label-container:hover .sk-estimator-doc-link.fitted:hover,\n",
+       ".sk-estimator-doc-link.fitted:hover {\n",
+       "  /* fitted */\n",
+       "  background-color: var(--sklearn-color-fitted-level-3);\n",
+       "  color: var(--sklearn-color-background);\n",
+       "  text-decoration: none;\n",
+       "}\n",
+       "\n",
+       "/* Span, style for the box shown on hovering the info icon */\n",
+       ".sk-estimator-doc-link span {\n",
+       "  display: none;\n",
+       "  z-index: 9999;\n",
+       "  position: relative;\n",
+       "  font-weight: normal;\n",
+       "  right: .2ex;\n",
+       "  padding: .5ex;\n",
+       "  margin: .5ex;\n",
+       "  width: min-content;\n",
+       "  min-width: 20ex;\n",
+       "  max-width: 50ex;\n",
+       "  color: var(--sklearn-color-text);\n",
+       "  box-shadow: 2pt 2pt 4pt #999;\n",
+       "  /* unfitted */\n",
+       "  background: var(--sklearn-color-unfitted-level-0);\n",
+       "  border: .5pt solid var(--sklearn-color-unfitted-level-3);\n",
+       "}\n",
+       "\n",
+       ".sk-estimator-doc-link.fitted span {\n",
+       "  /* fitted */\n",
+       "  background: var(--sklearn-color-fitted-level-0);\n",
+       "  border: var(--sklearn-color-fitted-level-3);\n",
+       "}\n",
+       "\n",
+       ".sk-estimator-doc-link:hover span {\n",
+       "  display: block;\n",
+       "}\n",
+       "\n",
+       "/* \"?\"-specific style due to the `<a>` HTML tag */\n",
+       "\n",
+       "#sk-container-id-1 a.estimator_doc_link {\n",
+       "  float: right;\n",
+       "  font-size: 1rem;\n",
+       "  line-height: 1em;\n",
+       "  font-family: monospace;\n",
+       "  background-color: var(--sklearn-color-background);\n",
+       "  border-radius: 1rem;\n",
+       "  height: 1rem;\n",
+       "  width: 1rem;\n",
+       "  text-decoration: none;\n",
+       "  /* unfitted */\n",
+       "  color: var(--sklearn-color-unfitted-level-1);\n",
+       "  border: var(--sklearn-color-unfitted-level-1) 1pt solid;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 a.estimator_doc_link.fitted {\n",
+       "  /* fitted */\n",
+       "  border: var(--sklearn-color-fitted-level-1) 1pt solid;\n",
+       "  color: var(--sklearn-color-fitted-level-1);\n",
+       "}\n",
+       "\n",
+       "/* On hover */\n",
+       "#sk-container-id-1 a.estimator_doc_link:hover {\n",
+       "  /* unfitted */\n",
+       "  background-color: var(--sklearn-color-unfitted-level-3);\n",
+       "  color: var(--sklearn-color-background);\n",
+       "  text-decoration: none;\n",
+       "}\n",
+       "\n",
+       "#sk-container-id-1 a.estimator_doc_link.fitted:hover {\n",
+       "  /* fitted */\n",
+       "  background-color: var(--sklearn-color-fitted-level-3);\n",
+       "}\n",
+       "</style><div id=\"sk-container-id-1\" class=\"sk-top-container\"><div class=\"sk-text-repr-fallback\"><pre>OneVsRestClassifier(estimator=RidgeClassifier(class_weight=&#x27;balanced&#x27;))</pre><b>In a Jupyter environment, please rerun this cell to show the HTML representation or trust the notebook. <br />On GitHub, the HTML representation is unable to render, please try loading this page with nbviewer.org.</b></div><div class=\"sk-container\" hidden><div class=\"sk-item sk-dashed-wrapped\"><div class=\"sk-label-container\"><div class=\"sk-label fitted sk-toggleable\"><input class=\"sk-toggleable__control sk-hidden--visually\" id=\"sk-estimator-id-1\" type=\"checkbox\" ><label for=\"sk-estimator-id-1\" class=\"sk-toggleable__label fitted sk-toggleable__label-arrow\"><div><div>OneVsRestClassifier</div></div><div><a class=\"sk-estimator-doc-link fitted\" rel=\"noreferrer\" target=\"_blank\" href=\"https://scikit-learn.org/1.6/modules/generated/sklearn.multiclass.OneVsRestClassifier.html\">?<span>Documentation for OneVsRestClassifier</span></a><span class=\"sk-estimator-doc-link fitted\">i<span>Fitted</span></span></div></label><div class=\"sk-toggleable__content fitted\"><pre>OneVsRestClassifier(estimator=RidgeClassifier(class_weight=&#x27;balanced&#x27;))</pre></div> </div></div><div class=\"sk-parallel\"><div class=\"sk-parallel-item\"><div class=\"sk-item\"><div class=\"sk-label-container\"><div class=\"sk-label fitted sk-toggleable\"><input class=\"sk-toggleable__control sk-hidden--visually\" id=\"sk-estimator-id-2\" type=\"checkbox\" ><label for=\"sk-estimator-id-2\" class=\"sk-toggleable__label fitted sk-toggleable__label-arrow\"><div><div>estimator: RidgeClassifier</div></div></label><div class=\"sk-toggleable__content fitted\"><pre>RidgeClassifier(class_weight=&#x27;balanced&#x27;)</pre></div> </div></div><div class=\"sk-serial\"><div class=\"sk-item\"><div class=\"sk-estimator fitted sk-toggleable\"><input class=\"sk-toggleable__control sk-hidden--visually\" id=\"sk-estimator-id-3\" type=\"checkbox\" ><label for=\"sk-estimator-id-3\" class=\"sk-toggleable__label fitted sk-toggleable__label-arrow\"><div><div>RidgeClassifier</div></div><div><a class=\"sk-estimator-doc-link fitted\" rel=\"noreferrer\" target=\"_blank\" href=\"https://scikit-learn.org/1.6/modules/generated/sklearn.linear_model.RidgeClassifier.html\">?<span>Documentation for RidgeClassifier</span></a></div></label><div class=\"sk-toggleable__content fitted\"><pre>RidgeClassifier(class_weight=&#x27;balanced&#x27;)</pre></div> </div></div></div></div></div></div></div></div></div>"
+      ],
+      "text/plain": [
+       "OneVsRestClassifier(estimator=RidgeClassifier(class_weight='balanced'))"
+      ]
+     },
+     "execution_count": 13,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# Train Ridge Classifier\n",
+    "ridge = OneVsRestClassifier(RidgeClassifier(class_weight=\"balanced\"))\n",
+    "ridge.fit(X_train, y_train)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "id": "48fe5317",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T21:26:10.910695Z",
+     "iopub.status.busy": "2026-04-06T21:26:10.909958Z",
+     "iopub.status.idle": "2026-04-06T21:27:14.350469Z",
+     "shell.execute_reply": "2026-04-06T21:27:14.349583Z"
+    },
+    "papermill": {
+     "duration": 63.56463,
+     "end_time": "2026-04-06T21:27:14.352337",
+     "exception": false,
+     "start_time": "2026-04-06T21:26:10.787707",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "# compute raw decision scores for the validation set\n",
+    "y_val_scores = ridge.decision_function(X_val)\n",
+    "\n",
+    "# compute raw decision scores for the test set\n",
+    "y_test_scores = ridge.decision_function(X_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "id": "5fd5fc35",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T21:27:14.691216Z",
+     "iopub.status.busy": "2026-04-06T21:27:14.690564Z",
+     "iopub.status.idle": "2026-04-06T21:27:14.762499Z",
+     "shell.execute_reply": "2026-04-06T21:27:14.761889Z"
+    },
+    "papermill": {
+     "duration": 0.198576,
+     "end_time": "2026-04-06T21:27:14.763895",
+     "exception": false,
+     "start_time": "2026-04-06T21:27:14.565319",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "# compute AUROC for each class individually (validation set)\n",
+    "val_auc_per_class = roc_auc_score(y_val, y_val_scores, average=None)\n",
+    "\n",
+    "# compute overall mean AUROC across all classes (validation set)\n",
+    "val_mean_auc = roc_auc_score(y_val, y_val_scores, average=\"macro\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "id": "9ef5230e",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T21:27:15.010690Z",
+     "iopub.status.busy": "2026-04-06T21:27:15.010004Z",
+     "iopub.status.idle": "2026-04-06T21:27:15.080795Z",
+     "shell.execute_reply": "2026-04-06T21:27:15.080250Z"
+    },
+    "papermill": {
+     "duration": 0.195197,
+     "end_time": "2026-04-06T21:27:15.082165",
+     "exception": false,
+     "start_time": "2026-04-06T21:27:14.886968",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "# compute AUROC for each class individually (test set)\n",
+    "test_auc_per_class = roc_auc_score(y_test, y_test_scores, average=None)\n",
+    "\n",
+    "# compute overall mean AUROC across all classes (test average)\n",
+    "test_mean_auc = roc_auc_score(y_test, y_test_scores, average=\"macro\")\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "id": "cf2fcb05",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T21:27:15.329392Z",
+     "iopub.status.busy": "2026-04-06T21:27:15.328827Z",
+     "iopub.status.idle": "2026-04-06T21:27:15.333491Z",
+     "shell.execute_reply": "2026-04-06T21:27:15.332784Z"
+    },
+    "papermill": {
+     "duration": 0.130085,
+     "end_time": "2026-04-06T21:27:15.335255",
+     "exception": false,
+     "start_time": "2026-04-06T21:27:15.205170",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Validation Mean AUROC: 0.6009853140412142\n",
+      "VAL  Atelectasis       : 0.5943\n",
+      "VAL  Cardiomegaly      : 0.6292\n",
+      "VAL  Effusion          : 0.6744\n",
+      "VAL  Infiltration      : 0.5799\n",
+      "VAL  Mass              : 0.5536\n",
+      "VAL  Nodule            : 0.5273\n",
+      "VAL  Pneumonia         : 0.5514\n",
+      "VAL  Pneumothorax      : 0.6036\n",
+      "VAL  Consolidation     : 0.6101\n",
+      "VAL  Edema             : 0.6612\n",
+      "VAL  Emphysema         : 0.5480\n",
+      "VAL  Fibrosis          : 0.5500\n",
+      "VAL  Pleural_Thickening: 0.5662\n",
+      "VAL  Hernia            : 0.7644\n"
+     ]
+    }
+   ],
+   "source": [
+    "# print overall validation performance (mean AUROC across all classes)\n",
+    "print(\"Validation Mean AUROC:\", val_mean_auc)\n",
+    "\n",
+    "# print AUROC score for each class on the validation set\n",
+    "for name, auc in zip(LABELS, val_auc_per_class):\n",
+    "    print(f\"VAL  {name:18s}: {auc:.4f}\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "id": "7cbe01ca",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2026-04-06T21:27:15.584915Z",
+     "iopub.status.busy": "2026-04-06T21:27:15.584230Z",
+     "iopub.status.idle": "2026-04-06T21:27:15.588853Z",
+     "shell.execute_reply": "2026-04-06T21:27:15.588067Z"
+    },
+    "papermill": {
+     "duration": 0.130035,
+     "end_time": "2026-04-06T21:27:15.590297",
+     "exception": false,
+     "start_time": "2026-04-06T21:27:15.460262",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      "Test Mean AUROC: 0.5829359538937784\n",
+      "TEST Atelectasis       : 0.6221\n",
+      "TEST Cardiomegaly      : 0.6158\n",
+      "TEST Effusion          : 0.6748\n",
+      "TEST Infiltration      : 0.5948\n",
+      "TEST Mass              : 0.5476\n",
+      "TEST Nodule            : 0.5186\n",
+      "TEST Pneumonia         : 0.5578\n",
+      "TEST Pneumothorax      : 0.5736\n",
+      "TEST Consolidation     : 0.6055\n",
+      "TEST Edema             : 0.6791\n",
+      "TEST Emphysema         : 0.5247\n",
+      "TEST Fibrosis          : 0.5673\n",
+      "TEST Pleural_Thickening: 0.5167\n",
+      "TEST Hernia            : 0.5629\n"
+     ]
+    }
+   ],
+   "source": [
+    "# print overall test performance (mean AUROC across all classes)\n",
+    "print(\"\\nTest Mean AUROC:\", test_mean_auc)\n",
+    "\n",
+    "# print AUROC score for each class individually\n",
+    "for name, auc in zip(LABELS, test_auc_per_class):\n",
+    "    print(f\"TEST {name:18s}: {auc:.4f}\")"
+   ]
+  }
+ ],
+ "metadata": {
+  "kaggle": {
+   "accelerator": "gpu",
+   "dataSources": [
+    {
+     "databundleVersionId": 18613,
+     "datasetId": 5839,
+     "sourceId": 18613,
+     "sourceType": "datasetVersion"
+    }
+   ],
+   "dockerImageVersionId": 31287,
+   "isGpuEnabled": true,
+   "isInternetEnabled": true,
+   "language": "python",
+   "sourceType": "notebook"
+  },
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.12.12"
+  },
+  "papermill": {
+   "default_parameters": {},
+   "duration": 6541.355305,
+   "end_time": "2026-04-06T21:27:18.609008",
+   "environment_variables": {},
+   "exception": null,
+   "input_path": "__notebook__.ipynb",
+   "output_path": "__notebook__.ipynb",
+   "parameters": {},
+   "start_time": "2026-04-06T19:38:17.253703",
+   "version": "2.6.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
