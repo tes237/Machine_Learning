@@ -17,6 +17,12 @@ from sklearn.svm import LinearSVC
 import psutil
 from sklearn.metrics import roc_auc_score
 
+LABELS = [
+    "Atelectasis","Cardiomegaly","Effusion","Infiltration","Mass","Nodule",
+    "Pneumonia","Pneumothorax","Consolidation","Edema","Emphysema","Fibrosis",
+    "Pleural_Thickening","Hernia"
+]
+
 def monitor_system_memory():
     """Prints the total, available, used, and percentage of system RAM."""
     mem = psutil.virtual_memory()
@@ -85,7 +91,6 @@ def svm_main():
     Y_rows = []
     Y = np.zeros((1, 14))
 
-
     with open(data_csv, mode='r') as file_feat:
 
         loop_index = 0
@@ -120,7 +125,7 @@ def svm_main():
             loop_index += 1
 
         Y = np.array(Y_rows)
-
+        
         number_of_samples = len(all_files)
 
         train_length = math.floor(len(all_files) * 0.8)
@@ -186,11 +191,9 @@ def svm_main():
 
     # type conversion
     train_data = np.float32(train_data)
-    #train_labels = np.int32(train_labels)
     train_labels = np.int32(train_target_Y)
     
     test_data = np.float32(test_data)
-    #test_labels = np.int32(test_labels)
     test_labels = np.int32(test_target_Y)
 
     # C/Gamma range for hyper parameter tuning
@@ -205,15 +208,6 @@ def svm_main():
     for tmpC in C:
         #for tmpGamma in Gamma:
 
-            '''
-            model = make_pipeline(
-                StandardScaler(),
-                PCA(n_components=200),
-                OneVsRestClassifier(
-                    SVC(kernel='rbf', C = tmpC, gamma = tmpGamma, class_weight='balanced')
-                )
-            )
-            '''
             model = make_pipeline(
                 StandardScaler(),
                 PCA(n_components=500,
@@ -262,22 +256,16 @@ def svm_main():
 
             result = (scores > thresholds).astype(int)
 
-            #print("after predict : ", datetime.now())
-
-            #print(np.bincount(result.astype(int).flatten()))
-            #matches = result.flatten() == test_labels
-            #correct = np.count_nonzero(matches)
-            #print("C = {:.2f}".format(tmpC), ", Gamma = {:.4f}".format(tmpGamma), ", Accuracy: {:.2f}%".format(correct * 100.0 / len(test_labels)))
             print(classification_report(test_labels, result))
             
             #ROC AUC score
-            #auc_score = roc_auc_score(y_test, y_score)
-            #auc_score = roc_auc_score(test_labels, scores, multi_class='ovr', average='macro')
-            auc_score = roc_auc_score(test_labels, scores, average='macro')
-            print(f"ROC AUC Macro Score: {auc_score}")
 
-            auc_score2 = roc_auc_score(test_labels, scores)
-            print(f"ROC AUC Score: {auc_score2}")
+            test_auc_per_class = roc_auc_score(test_labels, scores, average=None)
+            test_mean_auc = roc_auc_score(test_labels, scores, average="macro")
+
+            print("\nTest Mean AUROC:", test_mean_auc)
+            for name, auc in zip(LABELS, test_auc_per_class):
+                print(f"TEST {name:18s}: {auc:.4f}")
 
             print(train_data.shape)
             print(train_labels.shape)
