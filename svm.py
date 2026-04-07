@@ -57,13 +57,15 @@ def get_diagnosis(diagnosis_label):
             return 9
         case "Emphysema":
             return 10
-        case "Pleural_Thickening":
+        case "Fibrosis":
             return 11
-        case "Hernia":
+        case "Pleural_Thickening":
             return 12
-        case _: # No Finding
+        case "Hernia":
             return 13
-
+        case _: # No Finding
+            return 14
+        
 def svm_main():
 
     # for windows
@@ -72,7 +74,8 @@ def svm_main():
 
     # for linux
     data_dir = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test/images/'
-    data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test2_Data_Entry_2017.csv'
+    #data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test2_Data_Entry_2017.csv'
+    data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/Data_Entry_2017.csv'
 
     #data_dir = '/home/developer/src/python/UofC/ml_project/Data/archive/image_mini_test/images/'
     #data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/minitest_Data_Entry_2017.csv'
@@ -103,13 +106,13 @@ def svm_main():
                 tmp_diag_index = 0
                 for tmp_diagnosis in diagnosis_arr:
                     diagnosis = get_diagnosis(tmp_diagnosis)
-                    #Y[loop_index, diagnosis] = 1
-                    row[diagnosis] = 1
+                    if(diagnosis != 14):
+                        row[diagnosis] = 1
 
             else:
                 diagnosis = get_diagnosis(tmp_part)
-                #Y[loop_index, diagnosis] = 1
-                row[diagnosis] = 1
+                if(diagnosis != 14):
+                    row[diagnosis] = 1
 
             Y_rows.append(row)
 
@@ -118,11 +121,6 @@ def svm_main():
 
         Y = np.array(Y_rows)
 
-
-        #diminish dataset
-        #all_files = all_files[0:1000]
-        #Y = Y[0:1000]
-        
         number_of_samples = len(all_files)
 
         train_length = math.floor(len(all_files) * 0.8)
@@ -133,40 +131,9 @@ def svm_main():
         train_target_Y = []
         train_len = 0
 
-        #eval_target_files = []
-        #eval_target_Y = []
-        #eval_len = 0
-
         test_target_files = []
         test_target_Y = []
         test_len = 0
-
-        '''
-        for index in range(0, train_length):
-            train_target_files.append(all_files[index])
-            train_target_Y.append(Y[index])
-
-        train_target_Y = np.array(train_target_Y)
-
-        train_len = len(train_target_files)
-    
-        for index in range(train_length, train_length + eval_length):
-            eval_target_files.append(all_files[index])
-            eval_target_Y.append(Y[index])
-        
-        eval_target_Y = np.array(eval_target_Y)
-
-        eval_len = len(eval_target_files)
-    
-        #train_type == TRAIN_TYPE_TEST:
-        for index in range(train_length + eval_length, train_length + eval_length + test_length):
-            test_target_files.append(all_files[index])
-            test_target_Y.append(Y[index])
-
-        test_target_Y = np.array(test_target_Y)
-
-        test_len = len(test_target_files)
-        '''
 
         train_target_files, test_target_files, train_target_Y, test_target_Y = train_test_split(
             all_files, Y, test_size=0.2, random_state=42
@@ -178,14 +145,19 @@ def svm_main():
         test_target_Y = np.array(test_target_Y)
         test_len = len(test_target_files)
 
+    QUARTER_IMAGE_SIZE = 256
+    IMAGE_SIZE = 224
     train_data = []
     for image_path in train_target_files:
 
         img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-        img_resized = cv2.resize(img, (512, 512), interpolation=cv2.INTER_AREA)
+        img_quarter_resized = cv2.resize(img, (QUARTER_IMAGE_SIZE, QUARTER_IMAGE_SIZE), interpolation=cv2.INTER_AREA)
+        crop_size = IMAGE_SIZE
+        start = (QUARTER_IMAGE_SIZE - crop_size) // 2
+        img_resized = img_quarter_resized[start:start+crop_size, start:start+crop_size]
         
         feature = hog(img_resized,
-                    pixels_per_cell=(16,16),
+                    pixels_per_cell=(4,4),
                     cells_per_block=(2,2),
                     block_norm='L2-Hys',
                     feature_vector=True)
@@ -197,11 +169,14 @@ def svm_main():
     test_data = []
     for image_path in test_target_files:
 
-        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)  # shape (H, W), dtype uint8 
-        img_resized = cv2.resize(img, (512, 512), interpolation=cv2.INTER_AREA)
+        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        img_quarter_resized = cv2.resize(img, (QUARTER_IMAGE_SIZE, QUARTER_IMAGE_SIZE), interpolation=cv2.INTER_AREA)
+        crop_size = IMAGE_SIZE
+        start = (QUARTER_IMAGE_SIZE - crop_size) // 2
+        img_resized = img_quarter_resized[start:start+crop_size, start:start+crop_size]
 
         feature = hog(img_resized,
-                    pixels_per_cell=(16,16),
+                    pixels_per_cell=(4,4),
                     cells_per_block=(2,2),
                     block_norm='L2-Hys',
                     feature_vector=True)
