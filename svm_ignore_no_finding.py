@@ -16,6 +16,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.svm import LinearSVC
 import psutil
 from sklearn.metrics import roc_auc_score
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
 
 LABELS = [
     "Atelectasis","Cardiomegaly","Effusion","Infiltration","Mass","Nodule",
@@ -80,7 +82,6 @@ def svm_main():
 
     # for linux
     data_dir = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test/images/'
-    #data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/image_test2_Data_Entry_2017.csv'
     data_csv = '/home/developer/src/python/UofC/ml_project/Data/archive/Data_Entry_2017.csv'
 
     #data_dir = '/home/developer/src/python/UofC/ml_project/Data/archive/image_mini_test/images/'
@@ -205,71 +206,136 @@ def svm_main():
     print("unique labels:", np.unique(train_labels))
 
     # 6) SVM Training
-    for tmpC in C:
-        #for tmpGamma in Gamma:
+    #for tmpC in C:
+    tmpC = 1
 
-            model = make_pipeline(
-                StandardScaler(),
-                PCA(n_components=500,
-                    svd_solver='randomized',
-                    random_state=42
-                ),
-                OneVsRestClassifier(
-                    LinearSVC(C = tmpC, class_weight='balanced', max_iter=20000)
-                )
-            )
+    model = make_pipeline(
+        StandardScaler(),
+        PCA(n_components=500,
+            svd_solver='randomized',
+            random_state=42
+        ),
+        OneVsRestClassifier(
+            LinearSVC(C = tmpC, class_weight='balanced', max_iter=20000)
+        )
+    )
 
-            monitor_system_memory()
-            print("before train : ", datetime.now())
-            model.fit(train_data, train_labels)
-            print("after train : ", datetime.now())
-            monitor_system_memory()
+    monitor_system_memory()
+    print("before train : ", datetime.now())
+    model.fit(train_data, train_labels)
+    print("after train : ", datetime.now())
+    monitor_system_memory()
 
-            # 7) predict & calculate accuracy calculation
-            #result = model.predict(test_data)
+    # 7) predict & calculate accuracy calculation
+    #result = model.predict(test_data)
 
-            scores = model.decision_function(test_data)
+    scores = model.decision_function(test_data)
 
-            print("decision_function scores min : ", scores.min())
-            print("decision_function scores max : ", scores.max())
-            print("decision_function scores mean : ", scores.mean())
+    print("decision_function scores min : ", scores.min())
+    print("decision_function scores max : ", scores.max())
+    print("decision_function scores mean : ", scores.mean())
 
-            #threshold = -0.2
-            #result = (scores > threshold).astype(int)
+    #threshold = -0.2
+    #result = (scores > threshold).astype(int)
 
-            thresholds = [
-            -0.3,  # 0
-            -0.2,  # 1
-            -0.3,  # 2
-            -0.2,  # 3
-            -0.1,  # 4
-            -0.1,  # 5
-            0.0,  # 6
-            -0.1,  # 7
-            -0.1,  # 8
-            -0.1,  # 9
-            -0.1,  # 10
-            -0.1,  # 11
-            0.2,  # 12 (rare → stricter)
-            -0.3   # 13
-            ]
+    thresholds = [
+    -0.3,  # 0
+    -0.2,  # 1
+    -0.3,  # 2
+    -0.2,  # 3
+    -0.1,  # 4
+    -0.1,  # 5
+    0.0,  # 6
+    -0.1,  # 7
+    -0.1,  # 8
+    -0.1,  # 9
+    -0.1,  # 10
+    -0.1,  # 11
+    0.2,  # 12 (rare → stricter)
+    -0.3   # 13
+    ]
 
-            result = (scores > thresholds).astype(int)
+    result = (scores > thresholds).astype(int)
 
-            print(classification_report(test_labels, result))
-            
-            #ROC AUC score
+    print(classification_report(test_labels, result))
+    
+    #ROC AUC score
 
-            test_auc_per_class = roc_auc_score(test_labels, scores, average=None)
-            test_mean_auc = roc_auc_score(test_labels, scores, average="macro")
+    test_auc_per_class = roc_auc_score(test_labels, scores, average=None)
+    test_mean_auc = roc_auc_score(test_labels, scores, average="macro")
 
-            print("\nTest Mean AUROC:", test_mean_auc)
-            for name, auc in zip(LABELS, test_auc_per_class):
-                print(f"TEST {name:18s}: {auc:.4f}")
+    print("\nTest Mean AUROC:", test_mean_auc)
+    for name, auc_val in zip(LABELS, test_auc_per_class):
+        print(f"TEST {name:18s}: {auc_val:.4f}")
 
-            print(train_data.shape)
-            print(train_labels.shape)
-            print(np.sum(train_labels, axis=0))
+    print(train_data.shape)
+    print(train_labels.shape)
+    print(np.sum(train_labels, axis=0))
+
+
+
+    n_classes = len(LABELS)
+
+    # Per-class ROC
+    fpr = {}
+    tpr = {}
+    roc_auc = {}
+
+    for i in range(n_classes):
+        fpr[i], tpr[i], _ = roc_curve(test_labels[:, i], scores[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+
+    # Macro-average ROC
+    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(n_classes):
+        mean_tpr += np.interp(all_fpr, fpr[i], tpr[i])
+
+    mean_tpr /= n_classes
+    macro_auc = auc(all_fpr, mean_tpr)
+
+    # Std band across classes
+    tpr_interp_all = []
+    for i in range(n_classes):
+        tpr_interp_all.append(np.interp(all_fpr, fpr[i], tpr[i]))
+
+    tpr_interp_all = np.array(tpr_interp_all)
+    std_tpr = np.std(tpr_interp_all, axis=0)
+
+    tpr_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tpr_lower = np.maximum(mean_tpr - std_tpr, 0)
+
+    # Plot
+    fig, axes = plt.subplots(1, 2, figsize=(16, 7))
+
+    # Left: per-class ROC curves
+    for i in range(n_classes):
+        axes[0].plot(fpr[i], tpr[i], lw=1.5, label=f"{LABELS[i]} ({roc_auc[i]:.3f})")
+
+    axes[0].plot([0, 1], [0, 1], 'k--', lw=1, label="Random")
+    axes[0].set_title("Per-class ROC Curves")
+    axes[0].set_xlabel("False Positive Rate")
+    axes[0].set_ylabel("True Positive Rate")
+    axes[0].set_xlim([0, 1])
+    axes[0].set_ylim([0, 1.02])
+    axes[0].legend(loc="lower right", fontsize=8)
+
+    # Right: macro-average ROC
+    axes[1].plot(all_fpr, mean_tpr, lw=2, label=f"Macro-avg ROC (AUC = {macro_auc:.4f})")
+    axes[1].fill_between(all_fpr, tpr_lower, tpr_upper, alpha=0.2, label="± 1 std across classes")
+    axes[1].plot([0, 1], [0, 1], 'k--', lw=1, label="Random")
+    axes[1].set_title("Macro-Average ROC Curve")
+    axes[1].set_xlabel("False Positive Rate")
+    axes[1].set_ylabel("True Positive Rate")
+    axes[1].set_xlim([0, 1])
+    axes[1].set_ylim([0, 1.02])
+    axes[1].legend(loc="lower right", fontsize=9)
+
+    plt.suptitle("ROC / AUC Analysis — NIH ChestXray14", fontsize=16, fontweight="bold")
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.savefig("SVC_roc_auc_curves.png", dpi=150)
+    plt.show()
 
 
 if __name__ == "__main__":
