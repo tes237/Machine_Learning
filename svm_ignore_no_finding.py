@@ -19,12 +19,14 @@ from sklearn.metrics import roc_auc_score
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 
+#labels for all diseases
 LABELS = [
     "Atelectasis","Cardiomegaly","Effusion","Infiltration","Mass","Nodule",
     "Pneumonia","Pneumothorax","Consolidation","Edema","Emphysema","Fibrosis",
     "Pleural_Thickening","Hernia"
 ]
 
+#check how much RAM and swap memory is used for this program
 def monitor_system_memory():
     """Prints the total, available, used, and percentage of system RAM."""
     mem = psutil.virtual_memory()
@@ -41,6 +43,7 @@ def monitor_system_memory():
     print(f"Swap In (bytes/sec): {swap.sin}")
     print(f"Swap Out (bytes/sec): {swap.sout}")
 
+#get index for each diseases.
 def get_diagnosis(diagnosis_label):
     match diagnosis_label:
         case "Atelectasis":
@@ -73,7 +76,8 @@ def get_diagnosis(diagnosis_label):
             return 13
         case _: # No Finding
             return 14
-        
+
+#SVC main function
 def svm_main():
 
     # for windows
@@ -92,6 +96,7 @@ def svm_main():
     Y_rows = []
     Y = np.zeros((1, 14))
 
+    #open csv label files and read target label data and image file name.
     with open(data_csv, mode='r') as file_feat:
 
         loop_index = 0
@@ -141,10 +146,10 @@ def svm_main():
         test_target_Y = []
         test_len = 0
 
+        #split dataset for training and test dataset
         train_target_files, test_target_files, train_target_Y, test_target_Y = train_test_split(
             all_files, Y, test_size=0.2, random_state=42
         )
-
 
         train_target_Y = np.array(train_target_Y)
         train_len = len(train_target_files)
@@ -154,6 +159,8 @@ def svm_main():
     QUARTER_IMAGE_SIZE = 256
     IMAGE_SIZE = 224
     train_data = []
+
+    #read 1024x2024x8 BW image and convert it to 224x224 image for training data.
     for image_path in train_target_files:
 
         img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -161,18 +168,19 @@ def svm_main():
         crop_size = IMAGE_SIZE
         start = (QUARTER_IMAGE_SIZE - crop_size) // 2
         img_resized = img_quarter_resized[start:start+crop_size, start:start+crop_size]
-        
+
+        #extract hog features
         feature = hog(img_resized,
                     pixels_per_cell=(4,4),
                     cells_per_block=(2,2),
                     block_norm='L2-Hys',
                     feature_vector=True)
-        
-        #feature = hog(img)
 
         train_data.append(feature)
 
     test_data = []
+
+    #read 1024x2024x8 BW image and convert it to 224x224 image for test data.
     for image_path in test_target_files:
 
         img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -181,13 +189,13 @@ def svm_main():
         start = (QUARTER_IMAGE_SIZE - crop_size) // 2
         img_resized = img_quarter_resized[start:start+crop_size, start:start+crop_size]
 
+        #extract hog features
         feature = hog(img_resized,
                     pixels_per_cell=(4,4),
                     cells_per_block=(2,2),
                     block_norm='L2-Hys',
                     feature_vector=True)
 
-        #feature = hog(img)
         test_data.append(feature)
 
     # type conversion
@@ -209,6 +217,7 @@ def svm_main():
     #for tmpC in C:
     tmpC = 1
 
+    #make pipe line for StandardScaler, PCA and LinearSVC
     model = make_pipeline(
         StandardScaler(),
         PCA(n_components=500,
@@ -220,23 +229,27 @@ def svm_main():
         )
     )
 
+    #print memory usage before training
     monitor_system_memory()
     print("before train : ", datetime.now())
+
+    #training dataset
     model.fit(train_data, train_labels)
+    
     print("after train : ", datetime.now())
+
+    #print memory usage after training
     monitor_system_memory()
 
     # 7) predict & calculate accuracy calculation
     #result = model.predict(test_data)
 
+    #check how much sure abour its result with decision_function
     scores = model.decision_function(test_data)
 
     print("decision_function scores min : ", scores.min())
     print("decision_function scores max : ", scores.max())
     print("decision_function scores mean : ", scores.mean())
-
-    #threshold = -0.2
-    #result = (scores > threshold).astype(int)
 
     thresholds = [
     -0.3,  # 0
@@ -255,12 +268,12 @@ def svm_main():
     -0.3   # 13
     ]
 
+    #we confirm if its score is above the thresholds
     result = (scores > thresholds).astype(int)
 
     print(classification_report(test_labels, result))
     
-    #ROC AUC score
-
+    #check ROC AUC score
     test_auc_per_class = roc_auc_score(test_labels, scores, average=None)
     test_mean_auc = roc_auc_score(test_labels, scores, average="macro")
 
@@ -273,7 +286,7 @@ def svm_main():
     print(np.sum(train_labels, axis=0))
 
 
-
+    #plot AUC ROC result graph by classes
     n_classes = len(LABELS)
 
     # Per-class ROC
